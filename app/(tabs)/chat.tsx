@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,45 +13,27 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MessageCircle, Send } from 'lucide-react-native';
 import { useMealPlanner } from '@/hooks/meal-planner-store';
-import { trpc } from '@/lib/trpc';
-
-type Message = {
-  id: string;
-  role: 'user' | 'assistant' | 'system' | 'tool';
-  content: string;
-  toolCalls?: {
-    id: string;
-    type: 'function';
-    function: {
-      name: string;
-      arguments: string;
-    };
-  }[];
-  toolCallId?: string;
-  name?: string;
-};
+import { createRorkTool, useRorkAgent } from '@rork/toolkit-sdk';
+import { z } from 'zod';
 
 export default function ChatScreen() {
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const { mealPlan, preferences, generateGroceryList, getTotalCost, getLeftovers } = useMealPlanner();
   const insets = useSafeAreaInsets();
-  
-  const chatMutation = trpc.chat.openai.useMutation();
 
-  const executeTool = useCallback((toolName: string, args: any) => {
-    console.log('Executing tool:', toolName, 'with args:', args);
-    
-    switch (toolName) {
-      case 'getCurrentTime': {
-        const now = new Date();
-        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-        const currentDayOfWeek = days[now.getDay()];
-        
-        return `Current date and time information:
+  const { messages, error, sendMessage } = useRorkAgent({
+    tools: {
+      getCurrentTime: createRorkTool({
+        description: 'Get the current date and time, including day of week',
+        zodSchema: z.object({}),
+        execute() {
+          const now = new Date();
+          const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+          const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+          const currentDayOfWeek = days[now.getDay()];
+          
+          return `Current date and time information:
 - Today is: ${currentDayOfWeek}
 - Full date: ${months[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}
 - Time: ${now.toLocaleTimeString()}
@@ -59,277 +41,149 @@ export default function ChatScreen() {
 - ISO timestamp: ${now.toISOString()}
 
 IMPORTANT: Today is ${currentDayOfWeek}. When referring to the meal plan, the first day in the plan is always today (${currentDayOfWeek}).`;
-      }
-      
-      case 'getMealPlan': {
-        const detailedPlan = mealPlan.map(day => ({
-          date: day.date,
-          breakfast: day.breakfast ? {
-            name: day.breakfast.name,
-            description: day.breakfast.description,
-            cookTime: day.breakfast.cookTime,
-            calories: day.breakfast.nutrition.calories,
-            protein: day.breakfast.nutrition.protein,
-            difficulty: day.breakfast.difficulty,
-            cuisine: day.breakfast.cuisine
-          } : null,
-          lunch: day.lunch ? {
-            name: day.lunch.name,
-            description: day.lunch.description,
-            cookTime: day.lunch.cookTime,
-            calories: day.lunch.nutrition.calories,
-            protein: day.lunch.nutrition.protein,
-            difficulty: day.lunch.difficulty,
-            cuisine: day.lunch.cuisine
-          } : null,
-          dinner: day.dinner ? {
-            name: day.dinner.name,
-            description: day.dinner.description,
-            cookTime: day.dinner.cookTime,
-            calories: day.dinner.nutrition.calories,
-            protein: day.dinner.nutrition.protein,
-            difficulty: day.dinner.difficulty,
-            cuisine: day.dinner.cuisine
-          } : null
-        }));
-        
-        return JSON.stringify({
-          mealPlan: detailedPlan,
-          totalCost: getTotalCost(),
-          weeklyBudget: preferences.budgetPerWeek,
-          overBudget: getTotalCost() > preferences.budgetPerWeek,
-          budgetDifference: (getTotalCost() - preferences.budgetPerWeek).toFixed(2)
-        });
-      }
-      
-      case 'getUserPreferences': {
-        return JSON.stringify({
-          diet: preferences.diet,
-          mealMix: preferences.mealMix,
-          persons: preferences.persons,
-          budgetPerWeek: preferences.budgetPerWeek,
-          maxTimePerMeal: preferences.maxTimePerMeal,
-          allergies: preferences.allergies,
-          dislikes: preferences.dislikes,
-          goals: preferences.goals,
-          notes: preferences.notes
-        });
-      }
-      
-      case 'getGroceryList': {
-        const groceryList = generateGroceryList();
-        const totalCost = getTotalCost();
-        
-        return JSON.stringify({
-          items: groceryList.map(item => ({
-            name: item.name,
-            amount: item.amount,
-            unit: item.unit,
-            price: item.price,
-            category: item.category,
-            usedInRecipes: item.recipes
-          })),
-          totalCost: totalCost,
-          totalItems: groceryList.length,
-          budgetTarget: preferences.budgetPerWeek,
-          withinBudget: totalCost <= preferences.budgetPerWeek,
-          overBudgetAmount: totalCost > preferences.budgetPerWeek ? (totalCost - preferences.budgetPerWeek).toFixed(2) : 0,
-          categorySummary: groceryList.reduce((acc, item) => {
-            acc[item.category] = (acc[item.category] || 0) + item.price;
-            return acc;
-          }, {} as Record<string, number>)
-        });
-      }
-      
-      case 'getLeftovers': {
-        const leftovers = getLeftovers();
-        
-        if (leftovers.length === 0) {
+        }
+      }),
+      getMealPlan: createRorkTool({
+        description: 'Get the complete meal plan for the week',
+        zodSchema: z.object({}),
+        execute() {
+          const detailedPlan = mealPlan.map(day => ({
+            date: day.date,
+            breakfast: day.breakfast ? {
+              name: day.breakfast.name,
+              description: day.breakfast.description,
+              cookTime: day.breakfast.cookTime,
+              calories: day.breakfast.nutrition.calories,
+              protein: day.breakfast.nutrition.protein,
+              difficulty: day.breakfast.difficulty,
+              cuisine: day.breakfast.cuisine
+            } : null,
+            lunch: day.lunch ? {
+              name: day.lunch.name,
+              description: day.lunch.description,
+              cookTime: day.lunch.cookTime,
+              calories: day.lunch.nutrition.calories,
+              protein: day.lunch.nutrition.protein,
+              difficulty: day.lunch.difficulty,
+              cuisine: day.lunch.cuisine
+            } : null,
+            dinner: day.dinner ? {
+              name: day.dinner.name,
+              description: day.dinner.description,
+              cookTime: day.dinner.cookTime,
+              calories: day.dinner.nutrition.calories,
+              protein: day.dinner.nutrition.protein,
+              difficulty: day.dinner.difficulty,
+              cuisine: day.dinner.cuisine
+            } : null
+          }));
+          
           return JSON.stringify({
-            hasLeftovers: false,
-            message: "Great news! Your meal plan is optimized with minimal leftovers."
+            mealPlan: detailedPlan,
+            totalCost: getTotalCost(),
+            weeklyBudget: preferences.budgetPerWeek,
+            overBudget: getTotalCost() > preferences.budgetPerWeek,
+            budgetDifference: (getTotalCost() - preferences.budgetPerWeek).toFixed(2)
           });
         }
-        
-        return JSON.stringify({
-          hasLeftovers: true,
-          totalItems: leftovers.length,
-          leftovers: leftovers.map(item => ({
-            name: item.name,
-            leftoverAmount: item.leftoverAmount,
-            unit: item.unit,
-            category: item.category,
-            leftoverPercentage: item.leftoverPercentage,
-            description: `${item.leftoverAmount}${item.unit} of ${item.name} (${item.leftoverPercentage}% of package)`
-          })),
-          topLeftovers: leftovers.slice(0, 5).map(item => `${item.name}: ${item.leftoverAmount}${item.unit}`)
-        });
-      }
-      
-      default:
-        return JSON.stringify({ error: `Unknown tool: ${toolName}` });
-    }
-  }, [mealPlan, preferences, generateGroceryList, getTotalCost, getLeftovers]);
-
-  const tools = React.useMemo(() => [
-    {
-      type: 'function' as const,
-      function: {
-        name: 'getCurrentTime',
-        description: 'Get the current date and time, including day of week',
-        parameters: {
-          type: 'object',
-          properties: {},
-        },
-      },
-    },
-    {
-      type: 'function' as const,
-      function: {
-        name: 'getMealPlan',
-        description: 'Get the complete meal plan for the week',
-        parameters: {
-          type: 'object',
-          properties: {},
-        },
-      },
-    },
-    {
-      type: 'function' as const,
-      function: {
-        name: 'getUserPreferences',
+      }),
+      getUserPreferences: createRorkTool({
         description: 'Get user dietary preferences and constraints',
-        parameters: {
-          type: 'object',
-          properties: {},
-        },
-      },
-    },
-    {
-      type: 'function' as const,
-      function: {
-        name: 'getGroceryList',
+        zodSchema: z.object({}),
+        execute() {
+          return JSON.stringify({
+            diet: preferences.diet,
+            mealMix: preferences.mealMix,
+            persons: preferences.persons,
+            budgetPerWeek: preferences.budgetPerWeek,
+            maxTimePerMeal: preferences.maxTimePerMeal,
+            allergies: preferences.allergies,
+            dislikes: preferences.dislikes,
+            goals: preferences.goals,
+            notes: preferences.notes
+          });
+        }
+      }),
+      getGroceryList: createRorkTool({
         description: 'Get the grocery list with items and prices',
-        parameters: {
-          type: 'object',
-          properties: {},
-        },
-      },
-    },
-    {
-      type: 'function' as const,
-      function: {
-        name: 'getLeftovers',
+        zodSchema: z.object({}),
+        execute() {
+          const groceryList = generateGroceryList();
+          const totalCost = getTotalCost();
+          
+          return JSON.stringify({
+            items: groceryList.map(item => ({
+              name: item.name,
+              amount: item.amount,
+              unit: item.unit,
+              price: item.price,
+              category: item.category,
+              usedInRecipes: item.recipes
+            })),
+            totalCost: totalCost,
+            totalItems: groceryList.length,
+            budgetTarget: preferences.budgetPerWeek,
+            withinBudget: totalCost <= preferences.budgetPerWeek,
+            overBudgetAmount: totalCost > preferences.budgetPerWeek ? (totalCost - preferences.budgetPerWeek).toFixed(2) : 0,
+            categorySummary: groceryList.reduce((acc, item) => {
+              acc[item.category] = (acc[item.category] || 0) + item.price;
+              return acc;
+            }, {} as Record<string, number>)
+          });
+        }
+      }),
+      getLeftovers: createRorkTool({
         description: 'Get list of leftover ingredients',
-        parameters: {
-          type: 'object',
-          properties: {},
-        },
-      },
-    },
-  ], []);
+        zodSchema: z.object({}),
+        execute() {
+          const leftovers = getLeftovers();
+          
+          if (leftovers.length === 0) {
+            return JSON.stringify({
+              hasLeftovers: false,
+              message: "Great news! Your meal plan is optimized with minimal leftovers."
+            });
+          }
+          
+          return JSON.stringify({
+            hasLeftovers: true,
+            totalItems: leftovers.length,
+            leftovers: leftovers.map(item => ({
+              name: item.name,
+              leftoverAmount: item.leftoverAmount,
+              unit: item.unit,
+              category: item.category,
+              leftoverPercentage: item.leftoverPercentage,
+              description: `${item.leftoverAmount}${item.unit} of ${item.name} (${item.leftoverPercentage}% of package)`
+            })),
+            topLeftovers: leftovers.slice(0, 5).map(item => `${item.name}: ${item.leftoverAmount}${item.unit}`)
+          });
+        }
+      })
+    }
+  });
 
   useEffect(() => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
 
-  const handleSend = useCallback(async () => {
-    if (!input.trim() || isLoading) return;
+  const [isSending, setIsSending] = useState(false);
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: input.trim(),
-    };
-
-    setMessages(prev => [...prev, userMessage]);
+  const handleSend = async () => {
+    if (!input.trim() || isSending) return;
+    
+    const userInput = input.trim();
     setInput('');
-    setIsLoading(true);
-
+    setIsSending(true);
+    
     try {
-      let currentMessages = [...messages, userMessage];
-      let shouldContinue = true;
-      let iterations = 0;
-      const maxIterations = 5;
-
-      while (shouldContinue && iterations < maxIterations) {
-        iterations++;
-
-        const response = await chatMutation.mutateAsync({
-          messages: currentMessages.map(m => ({
-            role: m.role,
-            content: m.content,
-            ...(m.toolCallId ? { tool_call_id: m.toolCallId } : {}),
-            ...(m.name ? { name: m.name } : {}),
-          })) as any,
-          tools,
-        });
-
-        const assistantMessage = response.message;
-
-        if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
-          const assistantMsg: Message = {
-            id: Date.now().toString() + '-assistant',
-            role: 'assistant',
-            content: assistantMessage.content || '',
-            toolCalls: assistantMessage.tool_calls as any,
-          };
-
-          currentMessages = [...currentMessages, assistantMsg];
-
-          for (const toolCall of assistantMessage.tool_calls) {
-            try {
-              const tc = toolCall as any;
-              const args = JSON.parse(tc.function.arguments);
-              const result = executeTool(tc.function.name, args);
-
-              const toolMessage: Message = {
-                id: Date.now().toString() + '-tool-' + toolCall.id,
-                role: 'tool',
-                content: result,
-                toolCallId: toolCall.id,
-                name: tc.function.name,
-              };
-
-              currentMessages = [...currentMessages, toolMessage];
-            } catch (error) {
-              console.error('Error executing tool:', error);
-              const tc = toolCall as any;
-              const errorMessage: Message = {
-                id: Date.now().toString() + '-tool-error-' + toolCall.id,
-                role: 'tool',
-                content: JSON.stringify({ error: 'Failed to execute tool' }),
-                toolCallId: toolCall.id,
-                name: tc.function.name,
-              };
-              currentMessages = [...currentMessages, errorMessage];
-            }
-          }
-        } else {
-          const finalMessage: Message = {
-            id: Date.now().toString() + '-final',
-            role: 'assistant',
-            content: assistantMessage.content || 'No response',
-          };
-
-          currentMessages = [...currentMessages, finalMessage];
-          shouldContinue = false;
-        }
-      }
-
-      setMessages(currentMessages);
+      await sendMessage(userInput);
     } catch (error) {
       console.error('Chat error:', error);
-      const errorMessage: Message = {
-        id: Date.now().toString() + '-error',
-        role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.',
-      };
-      setMessages(prev => [...prev, errorMessage]);
     } finally {
-      setIsLoading(false);
+      setIsSending(false);
     }
-  }, [input, messages, isLoading, chatMutation, executeTool, tools]);
+  };
 
   return (
     <View style={styles.container}>
@@ -387,30 +241,44 @@ IMPORTANT: Today is ${currentDayOfWeek}. When referring to the meal plan, the fi
             </View>
           )}
 
-          {messages.filter(m => m.role === 'user' || (m.role === 'assistant' && m.content)).map((message) => (
+          {messages.map((message) => (
             <View key={message.id} style={styles.messageGroup}>
-              <View
-                style={[
-                  styles.messageBubble,
-                  message.role === 'user' ? styles.userBubble : styles.assistantBubble
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.messageText,
-                    message.role === 'user' ? styles.userText : styles.assistantText
-                  ]}
-                >
-                  {message.content}
-                </Text>
-              </View>
+              {message.parts.map((part, i) => {
+                if (part.type === 'text') {
+                  return (
+                    <View
+                      key={`${message.id}-${i}`}
+                      style={[
+                        styles.messageBubble,
+                        message.role === 'user' ? styles.userBubble : styles.assistantBubble
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.messageText,
+                          message.role === 'user' ? styles.userText : styles.assistantText
+                        ]}
+                      >
+                        {part.text}
+                      </Text>
+                    </View>
+                  );
+                }
+                return null;
+              })}
             </View>
           ))}
 
-          {isLoading && (
+          {isSending && (
             <View style={styles.loadingBubble}>
               <ActivityIndicator size="small" color="#6D1F3C" />
               <Text style={styles.loadingText}>Thinking...</Text>
+            </View>
+          )}
+          
+          {error && (
+            <View style={styles.errorBubble}>
+              <Text style={styles.errorText}>Error: {error.message}</Text>
             </View>
           )}
         </ScrollView>
@@ -428,11 +296,11 @@ IMPORTANT: Today is ${currentDayOfWeek}. When referring to the meal plan, the fi
             blurOnSubmit={false}
           />
           <TouchableOpacity
-            style={[styles.sendButton, (!input.trim() || isLoading) && styles.sendButtonDisabled]}
+            style={[styles.sendButton, (!input.trim() || isSending) && styles.sendButtonDisabled]}
             onPress={handleSend}
-            disabled={!input.trim() || isLoading}
+            disabled={!input.trim() || isSending}
           >
-            <Send size={20} color={input.trim() && !isLoading ? '#fff' : '#ccc'} />
+            <Send size={20} color={input.trim() && !isSending ? '#fff' : '#ccc'} />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -559,6 +427,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6D1F3C',
     fontStyle: 'italic' as const,
+  },
+  errorBubble: {
+    backgroundColor: '#fee',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    marginTop: 8,
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#c00',
   },
   inputContainer: {
     flexDirection: 'row',
