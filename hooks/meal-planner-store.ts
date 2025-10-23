@@ -1036,7 +1036,7 @@ export const [MealPlannerProvider, useMealPlanner] = createContextHook(() => {
     return true;
   }, [mealPlan]);
 
-  return useMemo(() => ({
+  const value = useMemo(() => ({
     preferences,
     mealPlan,
     isOnboardingComplete,
@@ -1071,4 +1071,6 @@ export const [MealPlannerProvider, useMealPlanner] = createContextHook(() => {
     swapMealsBetweenDays,
     getLeftovers
   ]);
+
+  return value;
 });

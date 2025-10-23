@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Platform
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { Calendar, Sparkles, ChefHat } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -14,26 +13,24 @@ import { useMealPlanner } from '@/hooks/meal-planner-store';
 import OnboardingScreen from '@/components/OnboardingScreen';
 import MealCard from '@/components/MealCard';
 import RecipeDetailModal from '@/components/RecipeDetailModal';
-import { MealCardSkeleton } from '@/components/SkeletonLoader';
 import { Recipe } from '@/types/meal';
 import { recipes } from '@/data/recipes';
 
 export default function HomeScreen() {
-  const {
-    isOnboardingComplete,
-    isLoading,
-    isInitialized,
-    mealPlan,
-    preferences,
-    generateMealPlan,
-    swapMeal,
-    getTotalCost,
-    generateGroceryList
-  } = useMealPlanner();
-  
+  const mealPlannerContext = useMealPlanner();
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [showRecipeModal, setShowRecipeModal] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<'all' | '75' | '50' | 'new' | 'budget'>('all');
+  
+  const isOnboardingComplete = mealPlannerContext?.isOnboardingComplete ?? false;
+  const isLoading = mealPlannerContext?.isLoading ?? false;
+  const isInitialized = mealPlannerContext?.isInitialized ?? false;
+  const mealPlan = mealPlannerContext?.mealPlan ?? [];
+  const preferences = mealPlannerContext?.preferences ?? { persons: 2, budgetPerWeek: 100 };
+  const generateMealPlan = mealPlannerContext?.generateMealPlan ?? (() => {});
+  const swapMeal = mealPlannerContext?.swapMeal ?? (() => {});
+  const getTotalCost = mealPlannerContext?.getTotalCost ?? (() => 0);
+  const generateGroceryList = mealPlannerContext?.generateGroceryList ?? (() => []);
 
   const cookableRecipes = useMemo(() => {
     const groceryList = generateGroceryList();
@@ -119,6 +116,14 @@ export default function HomeScreen() {
       generateMealPlan();
     }
   }, [isInitialized, isOnboardingComplete, generateMealPlan, mealPlan.length]);
+
+  if (!mealPlannerContext) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>Initializing...</Text>
+      </View>
+    );
+  }
 
   if (!isInitialized || isLoading) {
     return (
