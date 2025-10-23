@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
+import { Image } from 'expo-image';
 import { Clock, Users, RefreshCw, X } from 'lucide-react-native';
 import { Recipe } from '@/types/meal';
 import { useMealPlanner } from '@/hooks/meal-planner-store';
@@ -49,13 +50,10 @@ export default function MealCard({ recipe, servings, onSwap, onPress, dayId, mea
       <Image 
         source={{ uri: recipe.image }} 
         style={styles.image}
-        resizeMode="cover"
-        onError={(error) => {
-          console.log('Image load error for', recipe.name, ':', error.nativeEvent.error);
-        }}
-        onLoad={() => {
-          console.log('Image loaded successfully for:', recipe.name);
-        }}
+        contentFit="cover"
+        cachePolicy="disk"
+        placeholder={require('@/assets/images/icon.png')}
+        transition={300}
       />
       
       <View style={styles.content}>
@@ -147,19 +145,19 @@ export default function MealCard({ recipe, servings, onSwap, onPress, dayId, mea
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 12,
+    borderRadius: 16,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 8,
     elevation: 3,
+    overflow: 'hidden',
   },
   image: {
     width: '100%',
     height: 200,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    backgroundColor: '#f5f5f5',
   },
   content: {
     padding: 16,
