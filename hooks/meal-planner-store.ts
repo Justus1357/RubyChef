@@ -62,38 +62,65 @@ export const [MealPlannerProvider, useMealPlanner] = createContextHook(() => {
 
         if (storedPreferences) {
           try {
-            setPreferences(JSON.parse(storedPreferences));
-            console.log('✅ Loaded preferences');
+            const parsed = JSON.parse(storedPreferences);
+            if (parsed && typeof parsed === 'object') {
+              setPreferences(parsed);
+              console.log('✅ Loaded preferences');
+            } else {
+              console.warn('⚠️ Invalid preferences format, clearing');
+              await AsyncStorage.removeItem('meal_preferences');
+            }
           } catch (e) {
             console.error('❌ Failed to parse preferences:', e);
+            await AsyncStorage.removeItem('meal_preferences');
           }
         }
         
         if (storedMealPlan) {
           try {
-            setMealPlan(JSON.parse(storedMealPlan));
-            console.log('✅ Loaded meal plan');
+            const parsed = JSON.parse(storedMealPlan);
+            if (Array.isArray(parsed)) {
+              setMealPlan(parsed);
+              console.log('✅ Loaded meal plan');
+            } else {
+              console.warn('⚠️ Invalid meal plan format, clearing');
+              await AsyncStorage.removeItem('meal_plan');
+            }
           } catch (e) {
             console.error('❌ Failed to parse meal plan:', e);
+            await AsyncStorage.removeItem('meal_plan');
           }
         }
         
         if (storedOnboarding) {
           try {
-            setIsOnboardingComplete(JSON.parse(storedOnboarding));
-            console.log('✅ Loaded onboarding status');
+            const parsed = JSON.parse(storedOnboarding);
+            if (typeof parsed === 'boolean') {
+              setIsOnboardingComplete(parsed);
+              console.log('✅ Loaded onboarding status');
+            } else {
+              console.warn('⚠️ Invalid onboarding format, clearing');
+              await AsyncStorage.removeItem('onboarding_complete');
+            }
           } catch (e) {
             console.error('❌ Failed to parse onboarding:', e);
+            await AsyncStorage.removeItem('onboarding_complete');
           }
         }
         
         if (storedRemovedRecipes) {
           try {
-            const removedIds = JSON.parse(storedRemovedRecipes);
-            setRemovedRecipeIds(new Set(removedIds));
-            console.log('✅ Loaded removed recipe IDs:', removedIds.length);
+            const parsed = JSON.parse(storedRemovedRecipes);
+            if (Array.isArray(parsed)) {
+              setRemovedRecipeIds(new Set(parsed));
+              console.log('✅ Loaded removed recipe IDs:', parsed.length);
+            } else {
+              console.warn('⚠️ Invalid removed recipes format, clearing');
+              await AsyncStorage.removeItem('removed_recipe_ids');
+            }
           } catch (e) {
             console.error('❌ Failed to parse removed recipes:', e);
+            await AsyncStorage.removeItem('removed_recipe_ids');
           }
         }
       } catch (error) {
