@@ -14,6 +14,7 @@ const getBaseUrl = () => {
     return window.location.origin;
   }
 
+  console.warn('No base url found, please set EXPO_PUBLIC_RORK_API_BASE_URL');
   return '';
 };
 
