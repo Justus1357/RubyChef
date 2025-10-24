@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, TouchableOpacity, Platform } from 'react-native';
-import { Undo2 } from 'lucide-react-native';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
+import { RotateCcw } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 interface UndoSnackbarProps {
@@ -16,62 +16,46 @@ export default function UndoSnackbar({
   message,
   onUndo,
   onDismiss,
-  duration = 4000,
+  duration = 4000
 }: UndoSnackbarProps) {
-  const translateY = useRef(new Animated.Value(100)).current;
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const translateY = React.useRef(new Animated.Value(100)).current;
 
   useEffect(() => {
-    const handleDismiss = () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-      Animated.timing(translateY, {
-        toValue: 100,
-        duration: 200,
-        useNativeDriver: true,
-      }).start(() => {
-        onDismiss();
-      });
-    };
-
     if (visible) {
       Animated.spring(translateY, {
         toValue: 0,
         useNativeDriver: true,
-        tension: 65,
-        friction: 11,
+        tension: 80,
+        friction: 10,
       }).start();
 
-      timerRef.current = setTimeout(() => {
-        handleDismiss();
+      const timer = setTimeout(() => {
+        hideSnackbar();
       }, duration);
 
-      return () => {
-        if (timerRef.current) {
-          clearTimeout(timerRef.current);
-        }
-      };
+      return () => clearTimeout(timer);
     } else {
-      Animated.timing(translateY, {
-        toValue: 100,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
+      hideSnackbar();
     }
-  }, [visible, duration, translateY, onDismiss]);
+  }, [visible]);
+
+  const hideSnackbar = () => {
+    Animated.timing(translateY, {
+      toValue: 100,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      onDismiss();
+    });
+  };
 
   const handleUndo = () => {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-    }
     onUndo();
+    hideSnackbar();
   };
-
-
 
   if (!visible) return null;
 
@@ -84,13 +68,11 @@ export default function UndoSnackbar({
         },
       ]}
     >
-      <View style={styles.content}>
-        <Text style={styles.message}>{message}</Text>
-        <TouchableOpacity style={styles.undoButton} onPress={handleUndo}>
-          <Undo2 size={18} color="#6D1F3C" />
-          <Text style={styles.undoText}>UNDO</Text>
-        </TouchableOpacity>
-      </View>
+      <Text style={styles.message}>{message}</Text>
+      <TouchableOpacity style={styles.undoButton} onPress={handleUndo}>
+        <RotateCcw size={16} color="#6D1F3C" />
+        <Text style={styles.undoText}>UNDO</Text>
+      </TouchableOpacity>
     </Animated.View>
   );
 }
@@ -98,43 +80,40 @@ export default function UndoSnackbar({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 100,
-    left: 16,
-    right: 16,
-    zIndex: 1000,
-  },
-  content: {
+    bottom: 20,
+    left: 20,
+    right: 20,
+    backgroundColor: '#333',
+    borderRadius: 12,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#333',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 6,
+    elevation: 8,
+    zIndex: 1000,
   },
   message: {
-    flex: 1,
-    fontSize: 15,
     color: '#fff',
+    fontSize: 15,
+    flex: 1,
     marginRight: 16,
   },
   undoButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingVertical: 8,
+    backgroundColor: '#F5C563',
     paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 8,
-    gap: 6,
+    gap: 4,
   },
   undoText: {
+    color: '#6D1F3C',
     fontSize: 14,
     fontWeight: '700',
-    color: '#6D1F3C',
   },
 });

@@ -7,7 +7,6 @@ import { View, Text, StyleSheet } from "react-native";
 import { MealPlannerProvider } from "@/hooks/meal-planner-store";
 import { trpc, trpcClient } from "@/lib/trpc";
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
@@ -26,7 +25,7 @@ class ErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, errorInfo: any) {
-    console.error('Error boundary caught an error:', error, errorInfo);
+    console.error('Error boundary caught:', error, errorInfo);
   }
 
   render() {
@@ -53,10 +52,9 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   useEffect(() => {
-    // Delay splash screen hiding to prevent hydration issues
     const timer = setTimeout(() => {
       SplashScreen.hideAsync();
-    }, 100);
+    }, 500);
     
     return () => clearTimeout(timer);
   }, []);
@@ -82,6 +80,7 @@ const errorStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    backgroundColor: '#f8f9fa',
   },
   title: {
     fontSize: 18,

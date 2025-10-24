@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,316 +6,294 @@ import {
   Modal,
   TouchableOpacity,
   ScrollView,
-  Switch,
-  Platform,
+  Platform
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, Check, Sparkles, Filter, Download, BarChart3 } from 'lucide-react-native';
+import { X, Check, Sparkles, Star } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 
 interface PaywallModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubscribe?: (withTrial: boolean) => void;
+  feature?: string;
 }
 
-export default function PaywallModal({ visible, onClose, onSubscribe }: PaywallModalProps) {
-  const [withTrial, setWithTrial] = useState(true);
+export default function PaywallModal({ visible, onClose, feature }: PaywallModalProps) {
+  const [isPremium, setIsPremium] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubscribe = () => {
+  useEffect(() => {
+    loadPremiumStatus();
+  }, []);
+
+  const loadPremiumStatus = async () => {
+    const status = await AsyncStorage.getItem('premium_status');
+    setIsPremium(status === 'true');
+  };
+
+  const handlePurchase = async () => {
     if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
-    onSubscribe?.(withTrial);
+    
+    setLoading(true);
+    await AsyncStorage.setItem('premium_status', 'true');
+    await AsyncStorage.setItem('premium_trial_start', new Date().toISOString());
+    setIsPremium(true);
+    setLoading(false);
+    onClose();
   };
 
   const features = [
-    {
-      icon: Sparkles,
-      title: 'Unlimited Swaps',
-      description: 'Change any meal with one tap, no limits',
-    },
-    {
-      icon: Filter,
-      title: 'Advanced Filters',
-      description: 'Keto, Vegan, Gluten-free and more',
-    },
-    {
-      icon: BarChart3,
-      title: 'Pantry Insights',
-      description: 'See what you can cook with what you have',
-    },
-    {
-      icon: Download,
-      title: 'Export & Share',
-      description: 'Save grocery lists as PDF or share recipes',
-    },
+    { icon: '🔄', text: 'Unlimited meal swaps', premium: true },
+    { icon: '🎯', text: 'Advanced diet filters (keto, vegan, paleo)', premium: true },
+    { icon: '📊', text: 'Pantry coverage insights', premium: true },
+    { icon: '📄', text: 'Export grocery list as PDF', premium: true },
+    { icon: '🍽️', text: 'Weekly meal planner', premium: false },
+    { icon: '🛒', text: 'Smart grocery lists', premium: false },
+    { icon: '💰', text: 'Budget tracking', premium: false },
   ];
 
   return (
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
+      transparent={true}
       onRequestClose={onClose}
     >
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+      <View style={styles.overlay}>
+        <View style={styles.container}>
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
             <X size={24} color="#333" />
           </TouchableOpacity>
-        </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.heroSection}>
-            <View style={styles.iconContainer}>
-              <Sparkles size={48} color="#6D1F3C" />
-            </View>
-            <Text style={styles.title}>Upgrade to RubyChef Pro</Text>
-            <Text style={styles.subtitle}>
-              Unlock all features and make meal planning even easier
-            </Text>
-          </View>
-
-          <View style={styles.featuresContainer}>
-            {features.map((feature, index) => (
-              <View key={index} style={styles.featureRow}>
-                <View style={styles.featureIconContainer}>
-                  <feature.icon size={24} color="#6D1F3C" />
-                </View>
-                <View style={styles.featureContent}>
-                  <Text style={styles.featureTitle}>{feature.title}</Text>
-                  <Text style={styles.featureDescription}>{feature.description}</Text>
-                </View>
-                <View style={styles.checkIcon}>
-                  <Check size={20} color="#10b981" />
-                </View>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <View style={styles.header}>
+              <View style={styles.iconContainer}>
+                <Sparkles size={40} color="#6D1F3C" />
               </View>
-            ))}
-          </View>
+              <Text style={styles.title}>RubyChef Plus</Text>
+              <Text style={styles.subtitle}>
+                Unlock advanced features and take control of your meal planning
+              </Text>
+            </View>
 
-          <View style={styles.trialContainer}>
-            <View style={styles.trialToggle}>
-              <View style={styles.trialInfo}>
-                <Text style={styles.trialTitle}>7-Day Free Trial</Text>
-                <Text style={styles.trialDescription}>
-                  Try all features risk-free, cancel anytime
+            {feature && (
+              <View style={styles.featureHighlight}>
+                <Star size={20} color="#F5C563" />
+                <Text style={styles.featureText}>
+                  &quot;{feature}&quot; is a premium feature
                 </Text>
               </View>
-              <Switch
-                value={withTrial}
-                onValueChange={setWithTrial}
-                trackColor={{ false: '#e9ecef', true: '#6D1F3C' }}
-                thumbColor={withTrial ? '#fff' : '#f4f3f4'}
-                ios_backgroundColor="#e9ecef"
-              />
-            </View>
-          </View>
-
-          <View style={styles.pricingContainer}>
-            <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>
-                {withTrial ? 'After trial:' : 'Price:'}
-              </Text>
-              <Text style={styles.priceValue}>€4.99/month</Text>
-            </View>
-            {withTrial && (
-              <Text style={styles.trialNote}>
-                First 7 days free, then €4.99/mo. Cancel anytime before trial ends.
-              </Text>
             )}
-          </View>
-        </ScrollView>
 
-        <View style={styles.footer}>
-          <TouchableOpacity style={styles.subscribeButton} onPress={handleSubscribe}>
-            <Text style={styles.subscribeButtonText}>
-              {withTrial ? 'Start Free Trial' : 'Subscribe Now'}
+            <View style={styles.pricing}>
+              <Text style={styles.priceLabel}>Starting at</Text>
+              <View style={styles.priceRow}>
+                <Text style={styles.priceAmount}>€5.99</Text>
+                <Text style={styles.pricePeriod}>/month</Text>
+              </View>
+              <Text style={styles.trialText}>7-day free trial included</Text>
+            </View>
+
+            <View style={styles.featuresContainer}>
+              <Text style={styles.featuresTitle}>What you get:</Text>
+              {features.map((feature, index) => (
+                <View key={index} style={styles.featureRow}>
+                  <View style={styles.featureIcon}>
+                    {feature.premium ? (
+                      <Check size={18} color="#10b981" />
+                    ) : (
+                      <Text style={styles.featureEmoji}>{feature.icon}</Text>
+                    )}
+                  </View>
+                  <Text style={[
+                    styles.featureText2,
+                    feature.premium && styles.premiumFeatureText
+                  ]}>
+                    {feature.text}
+                  </Text>
+                  {feature.premium && (
+                    <View style={styles.premiumBadge}>
+                      <Text style={styles.premiumBadgeText}>PLUS</Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              style={[styles.purchaseButton, loading && styles.purchaseButtonDisabled]}
+              onPress={handlePurchase}
+              disabled={loading || isPremium}
+            >
+              <Text style={styles.purchaseButtonText}>
+                {isPremium ? '✓ Premium Active' : loading ? 'Processing...' : 'Start Free Trial'}
+              </Text>
+            </TouchableOpacity>
+
+            <Text style={styles.disclaimer}>
+              Mock purchase for beta. No actual billing. Cancel anytime.
             </Text>
-          </TouchableOpacity>
-
-          <Text style={styles.footerNote}>
-            Payment will be charged to your App Store account
-          </Text>
+          </ScrollView>
         </View>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  overlay: {
     flex: 1,
-    backgroundColor: '#fff',
-  },
-  header: {
-    flexDirection: 'row',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+  },
+  container: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 40,
+    maxHeight: '90%',
   },
   closeButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 20,
-    backgroundColor: '#f8f9fa',
+    alignSelf: 'flex-end',
+    padding: 8,
   },
-  content: {
-    flex: 1,
-  },
-  heroSection: {
+  header: {
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 40,
+    marginBottom: 24,
   },
   iconContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: '#fdf0f4',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 12,
-    textAlign: 'center',
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
-    lineHeight: 24,
-    paddingHorizontal: 20,
+    lineHeight: 22,
   },
-  featuresContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 32,
-  },
-  featureRow: {
+  featureHighlight: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f3f4',
-    gap: 16,
+    backgroundColor: '#fffbeb',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 20,
+    gap: 8,
   },
-  featureIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#fdf0f4',
+  pricing: {
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  featureContent: {
-    flex: 1,
-  },
-  featureTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  featureDescription: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-  },
-  checkIcon: {
-    width: 32,
-    height: 32,
+    backgroundColor: '#f8f9fa',
+    padding: 24,
     borderRadius: 16,
-    backgroundColor: '#f0fdf4',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  trialContainer: {
-    paddingHorizontal: 20,
     marginBottom: 24,
   },
-  trialToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#fdf0f4',
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 2,
-    borderColor: '#6D1F3C',
-  },
-  trialInfo: {
-    flex: 1,
-    marginRight: 16,
-  },
-  trialTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  trialDescription: {
+  priceLabel: {
     fontSize: 14,
     color: '#666',
-    lineHeight: 20,
-  },
-  pricingContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
+    marginBottom: 4,
   },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    justifyContent: 'center',
     marginBottom: 8,
   },
-  priceLabel: {
-    fontSize: 16,
-    color: '#666',
-    marginRight: 8,
-  },
-  priceValue: {
-    fontSize: 32,
+  priceAmount: {
+    fontSize: 40,
     fontWeight: 'bold',
     color: '#6D1F3C',
   },
-  trialNote: {
-    fontSize: 13,
+  pricePeriod: {
+    fontSize: 18,
     color: '#666',
-    textAlign: 'center',
-    lineHeight: 18,
+    marginLeft: 4,
   },
-  footer: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
+  trialText: {
+    fontSize: 14,
+    color: '#10b981',
+    fontWeight: '600',
   },
-  subscribeButton: {
-    backgroundColor: '#6D1F3C',
-    paddingVertical: 18,
-    borderRadius: 16,
+  featuresContainer: {
+    marginBottom: 24,
+  },
+  featuresTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 16,
+  },
+  featureRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
-    shadowColor: '#6D1F3C',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    gap: 12,
   },
-  subscribeButtonText: {
+  featureIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#f0fdf4',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureEmoji: {
+    fontSize: 16,
+  },
+  featureText: {
+    fontSize: 14,
+    color: '#666',
+    flex: 1,
+  },
+  featureText2: {
+    fontSize: 15,
+    color: '#666',
+    flex: 1,
+  },
+  premiumFeatureText: {
+    color: '#333',
+    fontWeight: '500',
+  },
+  premiumBadge: {
+    backgroundColor: '#F5C563',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  premiumBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#333',
+  },
+  purchaseButton: {
+    backgroundColor: '#6D1F3C',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  purchaseButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  purchaseButtonText: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#fff',
   },
-  footerNote: {
+  disclaimer: {
     fontSize: 12,
     color: '#999',
     textAlign: 'center',
