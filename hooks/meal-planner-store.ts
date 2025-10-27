@@ -39,18 +39,11 @@ export const [MealPlannerProvider, useMealPlanner] = createContextHook(() => {
       setIsLoading(true);
       console.log('🔄 Starting data load...');
       
-      try {
-        await Promise.race([
-          loadRecipes(),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Recipe loading timeout')), 10000)
-          )
-        ]);
-        console.log('✅ Recipes loaded, count:', recipes.length);
-      } catch (error) {
-        console.error('⚠️ Recipe loading failed or timed out:', error);
+      // Load recipes in background without blocking
+      loadRecipes().catch(error => {
+        console.error('⚠️ Recipe loading failed:', error);
         console.log('📦 Continuing with simple breakfasts only');
-      }
+      });
       
       try {
         const [storedPreferences, storedMealPlan, storedOnboarding, storedRemovedRecipes] = await Promise.all([
