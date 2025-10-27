@@ -15,6 +15,8 @@ import { MessageCircle, Send } from 'lucide-react-native';
 import { useMealPlanner } from '@/hooks/meal-planner-store';
 import { createRorkTool, useRorkAgent } from '@rork/toolkit-sdk';
 import { z } from 'zod';
+import { recipes } from '@/data/recipes';
+import { Recipe } from '@/types/meal';
 
 export default function ChatScreen() {
   const [input, setInput] = useState('');
@@ -257,6 +259,241 @@ IMPORTANT: Today is ${currentDayOfWeek}. When referring to the meal plan, the fi
             message: 'Generated a new meal plan based on your preferences. The plan has been updated to avoid your disliked ingredients.'
           });
         }
+      }),
+      getRecipeDetails: createRorkTool({
+        description: 'Get detailed information about a specific recipe including full ingredients list, instructions, nutrition facts, and cooking details. Use this when the user asks about a specific meal or wants to know more details.',
+        zodSchema: z.object({
+          recipeName: z.string().describe('The name of the recipe to get details for')
+        }),
+        execute(input) {
+          const recipe = mealPlan.flatMap(day => [day.breakfast, day.lunch, day.dinner])
+            .filter(Boolean)
+            .find(r => r?.name.toLowerCase().includes(input.recipeName.toLowerCase()));
+          
+          if (!recipe) {
+            return JSON.stringify({
+              success: false,
+              message: `Recipe "${input.recipeName}" not found in the current meal plan.`
+            });
+          }
+          
+          return JSON.stringify({
+            success: true,
+            recipe: {
+              name: recipe.name,
+              description: recipe.description,
+              image: recipe.image,
+              cookTime: recipe.cookTime,
+              servings: recipe.servings,
+              difficulty: recipe.difficulty,
+              cuisine: recipe.cuisine,
+              mealType: recipe.mealType,
+              ingredients: recipe.ingredients.map(ing => ({
+                name: ing.name,
+                amount: ing.amount,
+                unit: ing.unit,
+                price: ing.price,
+                category: ing.category
+              })),
+              instructions: recipe.instructions,
+              nutrition: {
+                calories: recipe.nutrition.calories,
+                protein: recipe.nutrition.protein,
+                carbs: recipe.nutrition.carbs,
+                fat: recipe.nutrition.fat
+              },
+              tags: recipe.tags,
+              totalCost: recipe.ingredients.reduce((sum, ing) => sum + ing.price, 0)
+            }
+          });
+        }
+      }),
+      searchRecipes: createRorkTool({
+        description: 'Search for recipes in the database by criteria like name, cuisine, meal type, dietary preferences, cooking time, or ingredients. Useful when user asks about available recipes or wants alternatives.',
+        zodSchema: z.object({
+          query: z.string().optional().describe('Search query for recipe name or description'),
+          cuisine: z.string().optional().describe('Filter by cuisine (e.g., Italian, Mexican, Asian)'),
+          mealType: z.enum(['breakfast', 'lunch', 'dinner']).optional().describe('Filter by meal type'),
+          maxCookTime: z.number().optional().describe('Maximum cooking time in minutes'),
+          maxCalories: z.number().optional().describe('Maximum calories per serving'),
+          tags: z.array(z.string()).optional().describe('Tags to filter by (e.g., vegan, vegetarian, high-protein, quick)'),
+          limit: z.number().optional().describe('Maximum number of results to return (default: 10)')
+        }),
+        execute(input) {
+          let filteredRecipes = [...recipes];
+          
+          if (input.query) {
+            const query = input.query.toLowerCase();
+            filteredRecipes = filteredRecipes.filter(r => 
+              r.name.toLowerCase().includes(query) || 
+              r.description.toLowerCase().includes(query) ||
+              r.ingredients.some(ing => ing.name.toLowerCase().includes(query))
+            );
+          }
+          
+          if (input.cuisine) {
+            filteredRecipes = filteredRecipes.filter(r => 
+              r.cuisine.toLowerCase().includes(input.cuisine!.toLowerCase())
+            );
+          }
+          
+          if (input.mealType) {
+            filteredRecipes = filteredRecipes.filter(r => r.mealType === input.mealType);
+          }
+          
+          if (input.maxCookTime) {
+            filteredRecipes = filteredRecipes.filter(r => r.cookTime <= input.maxCookTime!);
+          }
+          
+          if (input.maxCalories) {
+            filteredRecipes = filteredRecipes.filter(r => r.nutrition.calories <= input.maxCalories!);
+          }
+          
+          if (input.tags && input.tags.length > 0) {
+            filteredRecipes = filteredRecipes.filter(r => 
+              input.tags!.some(tag => r.tags.includes(tag.toLowerCase()))
+            );
+          }
+          
+          const limit = input.limit || 10;
+          const results = filteredRecipes.slice(0, limit);
+          
+          return JSON.stringify({
+            success: true,
+            totalFound: filteredRecipes.length,
+            showing: results.length,
+            recipes: results.map(r => ({
+              name: r.name,
+              description: r.description,
+              cuisine: r.cuisine,
+              mealType: r.mealType,
+              cookTime: r.cookTime,
+              difficulty: r.difficulty,
+              calories: r.nutrition.calories,
+              protein: r.nutrition.protein,
+              tags: r.tags,
+              cost: r.ingredients.reduce((sum, ing) => sum + ing.price, 0).toFixed(2)
+            }))
+          });
+        }
+      }),
+      getIngredientInfo: createRorkTool({
+        description: 'Get information about a specific ingredient including which recipes use it, typical amounts, price, and nutritional role.',
+        zodSchema: z.object({
+          ingredientName: z.string().describe('Name of the ingredient to get information about')
+        }),
+        execute(input) {
+          const groceryList = generateGroceryList();
+          const ingredient = groceryList.find(item => 
+            item.name.toLowerCase().includes(input.ingredientName.toLowerCase())
+          );
+          
+          if (!ingredient) {
+            return JSON.stringify({
+              success: false,
+              message: `Ingredient "${input.ingredientName}" not found in your current grocery list. It may not be part of your meal plan this week.`
+            });
+          }
+          
+          const allRecipes = mealPlan.flatMap(day => 
+            [day.breakfast, day.lunch, day.dinner].filter(Boolean)
+          ) as Recipe[];
+          
+          const recipesUsingIngredient = allRecipes.filter(recipe => 
+            recipe.ingredients.some(ing => 
+              ing.name.toLowerCase() === ingredient.name.toLowerCase()
+            )
+          );
+          
+          const ingredientDetails = recipesUsingIngredient
+            .flatMap(recipe => recipe.ingredients)
+            .filter(ing => ing.name.toLowerCase() === ingredient.name.toLowerCase());
+          
+          const avgAmount = ingredientDetails.length > 0
+            ? ingredientDetails.reduce((sum, ing) => sum + ing.amount, 0) / ingredientDetails.length
+            : ingredient.amount;
+          
+          return JSON.stringify({
+            success: true,
+            ingredient: {
+              name: ingredient.name,
+              category: ingredient.category,
+              totalAmount: ingredient.amount,
+              unit: ingredient.unit,
+              price: ingredient.price,
+              averageAmountPerRecipe: Math.round(avgAmount * 10) / 10,
+              usedInRecipes: ingredient.recipes,
+              numberOfRecipes: ingredient.recipes.length,
+              details: ingredientDetails.map(ing => ({
+                amount: ing.amount,
+                unit: ing.unit,
+                packageSize: ing.packageSize,
+                pricePerPackage: ing.pricePerPackage
+              }))
+            }
+          });
+        }
+      }),
+      getNutritionSummary: createRorkTool({
+        description: 'Get a nutrition summary for the meal plan including daily and weekly totals for calories, protein, carbs, and fat.',
+        zodSchema: z.object({
+          dayDate: z.string().optional().describe('Specific day to get nutrition for (e.g., "Monday"). If not provided, returns weekly summary.')
+        }),
+        execute(input) {
+          if (input.dayDate) {
+            const day = mealPlan.find(d => d.date === input.dayDate);
+            if (!day) {
+              return JSON.stringify({
+                success: false,
+                message: `Day "${input.dayDate}" not found in meal plan.`
+              });
+            }
+            
+            const meals = [day.breakfast, day.lunch, day.dinner].filter(Boolean) as Recipe[];
+            const totals = meals.reduce((acc, meal) => ({
+              calories: acc.calories + meal.nutrition.calories,
+              protein: acc.protein + meal.nutrition.protein,
+              carbs: acc.carbs + meal.nutrition.carbs,
+              fat: acc.fat + meal.nutrition.fat
+            }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+            
+            return JSON.stringify({
+              success: true,
+              day: input.dayDate,
+              meals: meals.map(m => ({
+                name: m.name,
+                mealType: m.mealType,
+                nutrition: m.nutrition
+              })),
+              dailyTotals: totals
+            });
+          }
+          
+          const weeklyTotals = mealPlan.reduce((acc, day) => {
+            const meals = [day.breakfast, day.lunch, day.dinner].filter(Boolean) as Recipe[];
+            meals.forEach(meal => {
+              acc.calories += meal.nutrition.calories;
+              acc.protein += meal.nutrition.protein;
+              acc.carbs += meal.nutrition.carbs;
+              acc.fat += meal.nutrition.fat;
+            });
+            return acc;
+          }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+          
+          const avgDaily = {
+            calories: Math.round(weeklyTotals.calories / 7),
+            protein: Math.round(weeklyTotals.protein / 7),
+            carbs: Math.round(weeklyTotals.carbs / 7),
+            fat: Math.round(weeklyTotals.fat / 7)
+          };
+          
+          return JSON.stringify({
+            success: true,
+            weeklyTotals,
+            averageDaily: avgDaily,
+            daysInPlan: mealPlan.length
+          });
+        }
       })
     }
   });
@@ -334,6 +571,18 @@ IMPORTANT: Today is ${currentDayOfWeek}. When referring to the meal plan, the fi
                   onPress={() => setInput("What leftovers do I have?")}
                 >
                   <Text style={styles.suggestionText}>Check my leftovers</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.suggestionChip}
+                  onPress={() => setInput("Tell me about today's dinner recipe")}
+                >
+                  <Text style={styles.suggestionText}>Tell me about a recipe</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.suggestionChip}
+                  onPress={() => setInput("What's the nutrition for today?")}
+                >
+                  <Text style={styles.suggestionText}>Show nutrition summary</Text>
                 </TouchableOpacity>
               </View>
             </View>
