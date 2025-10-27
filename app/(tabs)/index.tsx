@@ -7,7 +7,7 @@ import {
   Platform
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { Calendar, Sparkles, ChefHat } from 'lucide-react-native';
+import { Calendar, ChefHat } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useMealPlanner } from '@/hooks/meal-planner-store';
 import OnboardingScreen from '@/components/OnboardingScreen';
@@ -169,19 +169,6 @@ export default function HomeScreen() {
                 {isOverBudget && ` (Budget: €${budget})`}
               </Text>
             </View>
-            
-            <TouchableOpacity 
-              style={styles.regenerateButton} 
-              onPress={() => {
-                if (Platform.OS !== 'web') {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                }
-                generateMealPlan();
-              }}
-            >
-              <Sparkles size={20} color="#fff" />
-              <Text style={styles.regenerateText}>New Plan</Text>
-            </TouchableOpacity>
           </View>
         );
 
@@ -376,20 +363,7 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 4,
   },
-  regenerateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#6D1F3C',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    gap: 6,
-  },
-  regenerateText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-  },
+
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
