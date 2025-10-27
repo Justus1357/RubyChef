@@ -306,7 +306,6 @@ export default function HomeScreen() {
       <FlashList
         data={listData}
         renderItem={renderItem}
-        estimatedItemSize={200}
         keyExtractor={(item, index) => {
           if (item.type === 'day') return item.data.id;
           if (item.type === 'cookable-recipe') return `cookable-${item.data.recipe.id}`;
