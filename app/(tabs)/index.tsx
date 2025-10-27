@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Platform
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { Calendar, ChefHat } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -302,7 +303,7 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <FlashList
         data={listData}
         renderItem={renderItem}
@@ -320,7 +321,7 @@ export default function HomeScreen() {
         visible={showRecipeModal}
         onClose={() => setShowRecipeModal(false)}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
