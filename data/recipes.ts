@@ -404,46 +404,112 @@ const defaultMealImages: Record<string, string> = {
   'dinner': 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80',
 };
 
-function getImageForRecipe(recipeName: string, mealType: string, diet: string): string {
-  const lowerName = recipeName.toLowerCase();
+function getImageForRecipe(recipeName: string, mealType: string, diet: string, recipeId: string): string {
+  const cleanName = recipeName
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, '-')
+    .substring(0, 50);
   
-  const isVegan = diet === 'vegan' || veganKeywords.some(kw => lowerName.includes(kw));
-  const isVegetarian = diet === 'vegetarian' || vegetarianKeywords.some(kw => lowerName.includes(kw));
+  const seed = recipeId.split('-').pop() || '1';
   
-  if (isVegan) {
-    if (lowerName.includes('tray')) return 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&q=80';
-    if (lowerName.includes('bowl')) return 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&q=80';
-    if (lowerName.includes('burrito')) return 'https://images.unsplash.com/photo-1626700051175-6818013e1d4f?w=800&q=80';
-    if (lowerName.includes('taco')) return 'https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?w=800&q=80';
-    if (lowerName.includes('curry')) return 'https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=800&q=80';
-    if (lowerName.includes('stir fry')) return 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=800&q=80';
-    if (lowerName.includes('pasta')) return 'https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=800&q=80';
-    if (lowerName.includes('salad')) return 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&q=80';
-    if (lowerName.includes('soup')) return 'https://images.unsplash.com/photo-1476718406336-bb5a9690ee2a?w=800&q=80';
-    if (lowerName.includes('sandwich')) return 'https://images.unsplash.com/photo-1509722747041-616f39b57569?w=800&q=80';
-    if (lowerName.includes('wrap')) return 'https://images.unsplash.com/photo-1626700051175-6818013e1d4f?w=800&q=80';
-    if (lowerName.includes('pizza')) return 'https://images.unsplash.com/photo-1571407970349-bc81e7e96a47?w=800&q=80';
-    if (lowerName.includes('burger')) return 'https://images.unsplash.com/photo-1520072959219-c595dc870360?w=800&q=80';
-    return 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=800&q=80';
-  }
+  const photoIds = [
+    '1546069901-ba9599a7e63c',
+    '1504674900247-0877df9cc836',
+    '1565299585323-38d6b0865b47',
+    '1540189549336-e6e99c3679fe',
+    '1512621776951-a57141f2eefd',
+    '1565680018434-b513d5e5fd47',
+    '1467003909585-2f8a72700288',
+    '1568901346375-23c9450c58cd',
+    '1585937421612-70a008356fbe',
+    '1598103442097-8b74394b95c6',
+    '1588137378633-dea1336ce1e2',
+    '1603133872878-684f208fb84b',
+    '1621996346565-e3dbc646d9a9',
+    '1574894709920-11b28e7367e3',
+    '1612874742237-6526221588e3',
+    '1533089860892-a7c6f0a88666',
+    '1484723091739-30a097e8f929',
+    '1525351484163-7529414344d8',
+    '1488477181946-6428a0291777',
+    '1555507036-ab1f4038808a',
+    '1517673132405-a56a62b18caf',
+    '1567620905732-2d1ec7ab7445',
+    '1540420773420-3366772f4999',
+    '1569718212165-3a8278d5f624',
+    '1547592166-23ac45744acd',
+    '1528735602780-2552fd46c7af',
+    '1626700051175-6818013e1d4f',
+    '1513104890138-7c749659a591',
+    '1606755962773-d324e0a13086',
+    '1579584425555-c3ce17fd4351',
+    '1563379091339-03b21ab4a4f8',
+    '1534080564583-6be75777b70a',
+    '1516684732162-798a0062be99',
+    '1476124369491-f01e80c2a82d',
+    '1586201375761-83865001e31c',
+    '1546793665-c74683f339c1',
+    '1592417817098-8fd3d9eb14a5',
+    '1551504734-5ee1c4a1479b',
+    '1564093497595-593b96d80180',
+    '1571771894821-ce9b6c11b08e',
+    '1568702846914-96b305d2aaeb',
+    '1590301157890-4810ed352733',
+    '1529692236671-f1f6cf9683ba',
+    '1519708227418-c8fd9a32b7a2',
+    '1626074353765-517a65edd5c0',
+    '1599084993091-1cb5c0721cc6',
+    '1603360946369-dc9bb6258143',
+    '1600891964092-4316c288032e',
+    '1583224964811-e9151cb5e4f1',
+    '1599974579688-8dbdd335c77f',
+    '1618040996337-56904b7850b9',
+    '1582169296194-e4d644c48063',
+    '1565299585323-38d6b0865b47',
+    '1562967914-608f82629710',
+    '1632778149955-e80f8ceca2e8',
+    '1599487488170-d11ec9c172f0',
+    '1626082927389-6cd097cdc6ec',
+    '1645112411341-6c4fd023714a',
+    '1619895092538-128341789043',
+    '1604503468506-a8da13d82791',
+    '1591814468924-caf88d1232e1',
+    '1618841557871-b4664fbf0cb3',
+    '1559314809-0d155014e29e',
+    '1587740908075-9e245070dfaa',
+    '1543339494-b4cd4f7ba686',
+    '1574484284002-952d92456975',
+    '1574672280600-4accfa5b6f98',
+    '1509440159596-0249088772ff',
+    '1452251889946-8ff5ea7f27f8',
+    '1599599810769-bcde5a160d32',
+    '1622597467836-f3285f2131b8',
+    '1541519227354-08fa5d50c44d',
+    '1571407970349-bc81e7e96a47',
+    '1520072959219-c595dc870360',
+    '1509722747041-616f39b57569',
+    '1455619452474-d2be8b1e70cd',
+    '1512058564366-18510be2db19',
+    '1473093295043-cdd812d0e601',
+    '1476718406336-bb5a9690ee2a',
+    '1546069901-d5bfd2cbfb1f',
+    '1506976785307-8732e854ad03',
+    '1625944525533-473f1a3d54e7',
+    '1544025162-d76694265947',
+    '1579208570378-8c970854bc23',
+    '1587486937736-e7c6b76584a8',
+    '1489330932746-6def3d32bec7',
+    '1481070555726-e2fe8357725b',
+    '1484980972926-edee96e0960d',
+    '1511688186884-461a5a516c59'
+  ];
   
-  if (isVegetarian) {
-    if (lowerName.includes('tray')) return 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=800&q=80';
-    if (lowerName.includes('bowl')) return 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80';
-    if (lowerName.includes('pasta')) return 'https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?w=800&q=80';
-    if (lowerName.includes('salad')) return 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&q=80';
-    if (lowerName.includes('pizza')) return 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&q=80';
-    if (lowerName.includes('sandwich')) return 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=800&q=80';
-    return 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=800&q=80';
-  }
+  const seedNum = parseInt(seed, 10) || 1;
+  const index = seedNum % photoIds.length;
+  const photoId = photoIds[index];
   
-  for (const [key, imageUrl] of Object.entries(mealImageMap)) {
-    if (lowerName.includes(key)) {
-      return imageUrl;
-    }
-  }
-  
-  return defaultMealImages[mealType] || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80';
+  return `https://images.unsplash.com/photo-${photoId}?w=800&q=80&fit=crop&auto=format`;
 }
 
 function generateInstructions(recipeName: string, ingredients: SourceIngredient[]): string[] {
@@ -579,7 +645,7 @@ function transformRecipe(sourceRecipe: SourceRecipe): Recipe {
     id: sourceRecipe.id,
     name: sourceRecipe.title,
     description: `${sourceRecipe.cuisine} ${sourceRecipe.diet} ${mealType}`,
-    image: getImageForRecipe(sourceRecipe.title, mealType, sourceRecipe.diet),
+    image: getImageForRecipe(sourceRecipe.title, mealType, sourceRecipe.diet, sourceRecipe.id),
     cookTime: sourceRecipe.cook_time_min + sourceRecipe.prep_time_min,
     servings: 2,
     difficulty: getDifficulty(sourceRecipe.cook_time_min + sourceRecipe.prep_time_min),
