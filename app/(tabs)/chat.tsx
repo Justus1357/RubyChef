@@ -522,7 +522,7 @@ IMPORTANT: Today is ${currentDayOfWeek}. When referring to the meal plan, the fi
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <MessageCircle size={24} color="#6D1F3C" />
         <Text style={styles.title}>AI Assistant</Text>
       </View>
@@ -664,7 +664,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingBottom: 12,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
