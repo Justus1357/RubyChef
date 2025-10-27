@@ -19,7 +19,7 @@ import { z } from 'zod';
 export default function ChatScreen() {
   const [input, setInput] = useState('');
   const scrollViewRef = useRef<ScrollView>(null);
-  const { mealPlan, preferences, generateGroceryList, getTotalCost, getLeftovers } = useMealPlanner();
+  const { mealPlan, preferences, generateGroceryList, getTotalCost, getLeftovers, swapMeal, updatePreferences, generateMealPlan } = useMealPlanner();
   const insets = useSafeAreaInsets();
 
   const { messages, error, sendMessage } = useRorkAgent({
@@ -157,6 +157,104 @@ IMPORTANT: Today is ${currentDayOfWeek}. When referring to the meal plan, the fi
               description: `${item.leftoverAmount}${item.unit} of ${item.name} (${item.leftoverPercentage}% of package)`
             })),
             topLeftovers: leftovers.slice(0, 5).map(item => `${item.name}: ${item.leftoverAmount}${item.unit}`)
+          });
+        }
+      }),
+      swapMeal: createRorkTool({
+        description: 'Swap a specific meal in the meal plan with a different recipe. Use this when the user says they don\'t like a specific meal or wants to change it.',
+        zodSchema: z.object({
+          dayDate: z.string().describe('The day of the week (e.g., "Monday", "Tuesday"). This should be the date field from the meal plan.'),
+          mealType: z.enum(['breakfast', 'lunch', 'dinner']).describe('Which meal to swap: breakfast, lunch, or dinner')
+        }),
+        execute(input) {
+          const day = mealPlan.find(d => d.date === input.dayDate);
+          if (!day) {
+            return JSON.stringify({
+              success: false,
+              message: `Could not find day "${input.dayDate}" in the meal plan. Available days: ${mealPlan.map(d => d.date).join(', ')}`
+            });
+          }
+          
+          const currentMeal = day[input.mealType];
+          if (!currentMeal) {
+            return JSON.stringify({
+              success: false,
+              message: `No ${input.mealType} found for ${input.dayDate}`
+            });
+          }
+          
+          const oldMealName = currentMeal.name;
+          swapMeal(day.id, input.mealType);
+          
+          // Get the new meal after swap
+          const updatedDay = mealPlan.find(d => d.date === input.dayDate);
+          const newMeal = updatedDay?.[input.mealType];
+          
+          return JSON.stringify({
+            success: true,
+            message: `Swapped ${input.mealType} on ${input.dayDate} from "${oldMealName}" to "${newMeal?.name}"`,
+            oldMeal: oldMealName,
+            newMeal: newMeal?.name
+          });
+        }
+      }),
+      addToDislikedIngredients: createRorkTool({
+        description: 'Add ingredients or foods that the user dislikes to their preferences. This will prevent these items from appearing in future meal plans. Use this when the user says they don\'t like a specific ingredient, food, or dish.',
+        zodSchema: z.object({
+          ingredients: z.array(z.string()).describe('Array of ingredient names or foods to add to the dislike list (e.g., ["olives", "mushrooms", "anchovies"])')
+        }),
+        execute(input) {
+          const newDislikes = [...new Set([...preferences.dislikes, ...input.ingredients])];
+          const addedItems = input.ingredients.filter(item => !preferences.dislikes.includes(item));
+          
+          updatePreferences({
+            ...preferences,
+            dislikes: newDislikes
+          });
+          
+          return JSON.stringify({
+            success: true,
+            message: `Added ${addedItems.join(', ')} to your disliked ingredients. These won't appear in future meal plans.`,
+            addedItems: addedItems,
+            totalDislikes: newDislikes.length,
+            allDislikes: newDislikes
+          });
+        }
+      }),
+      removeFromDislikedIngredients: createRorkTool({
+        description: 'Remove ingredients from the user\'s dislike list. Use this when the user says they now like something they previously disliked.',
+        zodSchema: z.object({
+          ingredients: z.array(z.string()).describe('Array of ingredient names to remove from the dislike list')
+        }),
+        execute(input) {
+          const newDislikes = preferences.dislikes.filter(
+            dislike => !input.ingredients.some(item => dislike.toLowerCase().includes(item.toLowerCase()))
+          );
+          const removedItems = preferences.dislikes.filter(dislike => !newDislikes.includes(dislike));
+          
+          updatePreferences({
+            ...preferences,
+            dislikes: newDislikes
+          });
+          
+          return JSON.stringify({
+            success: true,
+            message: `Removed ${removedItems.join(', ')} from your disliked ingredients.`,
+            removedItems: removedItems,
+            totalDislikes: newDislikes.length,
+            allDislikes: newDislikes
+          });
+        }
+      }),
+      regenerateMealPlan: createRorkTool({
+        description: 'Regenerate the entire meal plan. Use this after changing preferences like dislikes, or when the user wants a completely new meal plan.',
+        zodSchema: z.object({}),
+        execute() {
+          generateMealPlan();
+          
+          return JSON.stringify({
+            success: true,
+            message: 'Generated a new meal plan based on your preferences. The plan has been updated to avoid your disliked ingredients.'
           });
         }
       })
