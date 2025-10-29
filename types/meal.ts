@@ -70,6 +70,7 @@ export interface UserPreferences {
   postalCode?: string;
   nearbySupermarkets?: Supermarket[];
   selectedSupermarket?: Supermarket;
+  unitSystem: 'metric' | 'imperial';
 }
 
 export interface GroceryItem {

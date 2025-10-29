@@ -21,7 +21,8 @@ const defaultPreferences: UserPreferences = {
   eatingOutDays: [],
   postalCode: undefined,
   nearbySupermarkets: undefined,
-  selectedSupermarket: undefined
+  selectedSupermarket: undefined,
+  unitSystem: 'metric'
 };
 
 export const [MealPlannerProvider, useMealPlanner] = createContextHook(() => {

@@ -17,6 +17,7 @@ import { UserPreferences, Supermarket, Person } from '@/types/meal';
 
 const STEPS = [
   'Welcome',
+  'Unit System',
   'Name',
   'Goals',
   'Bio Preference',
@@ -53,6 +54,7 @@ export default function OnboardingScreen({ isEditing = false, onComplete }: Onbo
   const [editingPersonName, setEditingPersonName] = useState('');
   const [isScanningStores, setIsScanningStores] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [unitSystem, setUnitSystem] = useState<'metric' | 'imperial'>(preferences.unitSystem || 'metric');
 
   const handleNext = () => {
     if (currentStep < STEPS.length - 1) {
@@ -351,6 +353,69 @@ export default function OnboardingScreen({ isEditing = false, onComplete }: Onbo
       case 1:
         return (
           <View style={styles.stepContainer}>
+            <Text style={styles.centeredTitle}>Unit System</Text>
+            <Text style={styles.centeredSubtitle}>Which unit system would you like to use?</Text>
+            
+            <View style={styles.illustrationPlaceholder}>
+              <ChefHat size={80} color="#6D1F3C" />
+            </View>
+            
+            <Text style={styles.questionText}>Choose your preferred measurement system</Text>
+            
+            <View style={styles.unitSystemContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.unitSystemCard,
+                  unitSystem === 'metric' && styles.unitSystemCardSelected
+                ]}
+                onPress={() => {
+                  setUnitSystem('metric');
+                  updateFormData('unitSystem', 'metric');
+                }}
+              >
+                <View style={[
+                  styles.unitSystemIconCircle,
+                  unitSystem === 'metric' && styles.unitSystemIconCircleSelected
+                ]}>
+                  <Text style={styles.unitSystemIcon}>📏</Text>
+                </View>
+                <Text style={styles.unitSystemTitle}>Metric</Text>
+                <Text style={styles.unitSystemDesc}>Grams, Celsius, Liters</Text>
+                <Text style={styles.unitSystemExample}>500g, 180°C, 250ml</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.unitSystemCard,
+                  unitSystem === 'imperial' && styles.unitSystemCardSelected
+                ]}
+                onPress={() => {
+                  setUnitSystem('imperial');
+                  updateFormData('unitSystem', 'imperial');
+                }}
+              >
+                <View style={[
+                  styles.unitSystemIconCircle,
+                  unitSystem === 'imperial' && styles.unitSystemIconCircleSelected
+                ]}>
+                  <Text style={styles.unitSystemIcon}>📐</Text>
+                </View>
+                <Text style={styles.unitSystemTitle}>Imperial</Text>
+                <Text style={styles.unitSystemDesc}>Ounces, Fahrenheit, Cups</Text>
+                <Text style={styles.unitSystemExample}>1 lb, 350°F, 1 cup</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.infoBox}>
+              <Text style={styles.infoIcon}>ℹ️</Text>
+              <Text style={styles.infoText}>All recipes and ingredient quantities will be displayed in your preferred unit system. You can change this later in settings.</Text>
+            </View>
+          </View>
+        );
+
+      case 2:
+        return (
+          <View style={styles.stepContainer}>
             <Text style={styles.centeredTitle}>Welcome to RubyChef!</Text>
             <Text style={styles.centeredSubtitle}>What should we call you?</Text>
             
@@ -366,7 +431,7 @@ export default function OnboardingScreen({ isEditing = false, onComplete }: Onbo
           </View>
         );
 
-      case 2:
+      case 3:
         return (
           <View style={styles.stepContainer}>
             <Text style={styles.centeredTitle}>What Can We Help You With?</Text>
@@ -405,7 +470,7 @@ export default function OnboardingScreen({ isEditing = false, onComplete }: Onbo
           </View>
         );
 
-      case 3:
+      case 4:
         return (
           <View style={styles.stepContainer}>
             <Text style={styles.centeredTitle}>How important is organic?</Text>
@@ -453,7 +518,7 @@ export default function OnboardingScreen({ isEditing = false, onComplete }: Onbo
           </View>
         );
 
-      case 4:
+      case 5:
         return (
           <View style={styles.stepContainer}>
             <Text style={styles.centeredTitle}>Where do you shop?</Text>
@@ -543,7 +608,7 @@ export default function OnboardingScreen({ isEditing = false, onComplete }: Onbo
           </View>
         );
         
-      case 5:
+      case 6:
         return (
           <View style={styles.stepContainer}>
             <Text style={styles.centeredTitle}>Allergies & Intolerances</Text>
@@ -586,7 +651,7 @@ export default function OnboardingScreen({ isEditing = false, onComplete }: Onbo
           </View>
         );
 
-      case 6:
+      case 7:
         return (
           <View style={styles.stepContainer}>
             <Text style={styles.centeredTitle}>Special Focus</Text>
@@ -638,7 +703,7 @@ export default function OnboardingScreen({ isEditing = false, onComplete }: Onbo
           </View>
         );
 
-      case 7:
+      case 8:
         return (
           <View style={styles.stepContainer}>
             <Text style={styles.centeredTitle}>Diet Type</Text>
@@ -673,7 +738,7 @@ export default function OnboardingScreen({ isEditing = false, onComplete }: Onbo
           </View>
         );
 
-      case 8:
+      case 9:
         return (
           <View style={styles.stepContainer}>
             <Text style={styles.centeredTitle}>Your Household</Text>
@@ -761,7 +826,7 @@ export default function OnboardingScreen({ isEditing = false, onComplete }: Onbo
           </View>
         );
 
-      case 9:
+      case 10:
         return (
           <View style={styles.stepContainer}>
             <Text style={styles.centeredTitle}>How active are you?</Text>
@@ -805,7 +870,7 @@ export default function OnboardingScreen({ isEditing = false, onComplete }: Onbo
           </View>
         );
 
-      case 10:
+      case 11:
         return (
           <View style={styles.stepContainer}>
             <Text style={styles.centeredTitle}>Help us personalize your plan</Text>
@@ -874,7 +939,7 @@ export default function OnboardingScreen({ isEditing = false, onComplete }: Onbo
           </View>
         );
 
-      case 11:
+      case 12:
         return (
           <View style={styles.stepContainer}>
             <Text style={styles.centeredTitle}>Main Meal</Text>
@@ -923,7 +988,7 @@ export default function OnboardingScreen({ isEditing = false, onComplete }: Onbo
           </View>
         );
 
-      case 12:
+      case 13:
         return (
           <View style={styles.stepContainer}>
             <Text style={styles.centeredTitle}>Time Available for Cooking</Text>
@@ -1954,6 +2019,55 @@ const styles = StyleSheet.create({
   },
   householdNameTouchable: {
     flex: 1,
+  },
+  unitSystemContainer: {
+    gap: 16,
+    marginTop: 24,
+  },
+  unitSystemCard: {
+    padding: 24,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    alignItems: 'center' as const,
+  },
+  unitSystemCardSelected: {
+    borderColor: '#6D1F3C',
+    backgroundColor: '#E8F7F5',
+  },
+  unitSystemIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#E0E0E0',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    marginBottom: 16,
+  },
+  unitSystemIconCircleSelected: {
+    backgroundColor: '#6D1F3C',
+  },
+  unitSystemIcon: {
+    fontSize: 40,
+  },
+  unitSystemTitle: {
+    fontSize: 20,
+    fontWeight: 'bold' as const,
+    color: '#333',
+    marginBottom: 8,
+  },
+  unitSystemDesc: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center' as const,
+    marginBottom: 8,
+  },
+  unitSystemExample: {
+    fontSize: 13,
+    color: '#999',
+    fontStyle: 'italic' as const,
+    textAlign: 'center' as const,
   },
   footer: {
     flexDirection: 'row',
