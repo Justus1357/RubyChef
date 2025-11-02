@@ -85,3 +85,23 @@ export interface GroceryItem {
   packageSize?: number;
   packagePrice?: number;
 }
+
+export interface TasteProfileResponse {
+  recipeId: string;
+  recipeName: string;
+  response: 'like' | 'neutral' | 'dislike';
+  tags: string[];
+  cuisine: string;
+  diet: string;
+}
+
+export interface TasteProfile {
+  responses: TasteProfileResponse[];
+  likedTags: { [tag: string]: number };
+  dislikedTags: { [tag: string]: number };
+  likedCuisines: { [cuisine: string]: number };
+  dislikedCuisines: { [cuisine: string]: number };
+  likedDiets: { [diet: string]: number };
+  dislikedDiets: { [diet: string]: number };
+  completedAt: string;
+}

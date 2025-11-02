@@ -2,7 +2,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { recipes, loadRecipes } from '@/data/recipes';
-import { UserPreferences, MealPlan, GroceryItem, Recipe } from '@/types/meal';
+import { UserPreferences, MealPlan, GroceryItem, Recipe, TasteProfile, TasteProfileResponse } from '@/types/meal';
 
 const defaultPreferences: UserPreferences = {
   diet: 'any',
@@ -29,6 +29,8 @@ export const [MealPlannerProvider, useMealPlanner] = createContextHook(() => {
   const [preferences, setPreferences] = useState<UserPreferences>(defaultPreferences);
   const [mealPlan, setMealPlan] = useState<MealPlan[]>([]);
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
+  const [tasteProfile, setTasteProfile] = useState<TasteProfile | null>(null);
+  const [isTasteProfileComplete, setIsTasteProfileComplete] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [removedRecipeIds, setRemovedRecipeIds] = useState<Set<string>>(new Set());
@@ -47,11 +49,13 @@ export const [MealPlannerProvider, useMealPlanner] = createContextHook(() => {
       });
       
       try {
-        const [storedPreferences, storedMealPlan, storedOnboarding, storedRemovedRecipes] = await Promise.all([
+        const [storedPreferences, storedMealPlan, storedOnboarding, storedRemovedRecipes, storedTasteProfile, storedTasteProfileComplete] = await Promise.all([
           AsyncStorage.getItem('meal_preferences').catch(() => null),
           AsyncStorage.getItem('meal_plan').catch(() => null),
           AsyncStorage.getItem('onboarding_complete').catch(() => null),
-          AsyncStorage.getItem('removed_recipe_ids').catch(() => null)
+          AsyncStorage.getItem('removed_recipe_ids').catch(() => null),
+          AsyncStorage.getItem('taste_profile').catch(() => null),
+          AsyncStorage.getItem('taste_profile_complete').catch(() => null)
         ]);
 
         if (storedPreferences) {
@@ -115,6 +119,38 @@ export const [MealPlannerProvider, useMealPlanner] = createContextHook(() => {
           } catch (e) {
             console.error('❌ Failed to parse removed recipes:', e);
             await AsyncStorage.removeItem('removed_recipe_ids');
+          }
+        }
+        
+        if (storedTasteProfile) {
+          try {
+            const parsed = JSON.parse(storedTasteProfile);
+            if (parsed && typeof parsed === 'object') {
+              setTasteProfile(parsed);
+              console.log('✅ Loaded taste profile');
+            } else {
+              console.warn('⚠️ Invalid taste profile format, clearing');
+              await AsyncStorage.removeItem('taste_profile');
+            }
+          } catch (e) {
+            console.error('❌ Failed to parse taste profile:', e);
+            await AsyncStorage.removeItem('taste_profile');
+          }
+        }
+        
+        if (storedTasteProfileComplete) {
+          try {
+            const parsed = JSON.parse(storedTasteProfileComplete);
+            if (typeof parsed === 'boolean') {
+              setIsTasteProfileComplete(parsed);
+              console.log('✅ Loaded taste profile completion status');
+            } else {
+              console.warn('⚠️ Invalid taste profile completion format, clearing');
+              await AsyncStorage.removeItem('taste_profile_complete');
+            }
+          } catch (e) {
+            console.error('❌ Failed to parse taste profile completion:', e);
+            await AsyncStorage.removeItem('taste_profile_complete');
           }
         }
       } catch (error) {
@@ -879,21 +915,87 @@ export const [MealPlannerProvider, useMealPlanner] = createContextHook(() => {
 
 
 
+  const saveTasteProfile = useCallback(async (responses: TasteProfileResponse[]) => {
+    console.log('💾 Saving taste profile with', responses.length, 'responses');
+    
+    const likedTags: { [tag: string]: number } = {};
+    const dislikedTags: { [tag: string]: number } = {};
+    const likedCuisines: { [cuisine: string]: number } = {};
+    const dislikedCuisines: { [cuisine: string]: number } = {};
+    const likedDiets: { [diet: string]: number } = {};
+    const dislikedDiets: { [diet: string]: number } = {};
+    
+    responses.forEach(response => {
+      if (response.response === 'like') {
+        response.tags.forEach(tag => {
+          likedTags[tag] = (likedTags[tag] || 0) + 1;
+        });
+        likedCuisines[response.cuisine] = (likedCuisines[response.cuisine] || 0) + 1;
+        if (response.diet) {
+          likedDiets[response.diet] = (likedDiets[response.diet] || 0) + 1;
+        }
+      } else if (response.response === 'dislike') {
+        response.tags.forEach(tag => {
+          dislikedTags[tag] = (dislikedTags[tag] || 0) + 1;
+        });
+        dislikedCuisines[response.cuisine] = (dislikedCuisines[response.cuisine] || 0) + 1;
+        if (response.diet) {
+          dislikedDiets[response.diet] = (dislikedDiets[response.diet] || 0) + 1;
+        }
+      }
+    });
+    
+    const profile: TasteProfile = {
+      responses,
+      likedTags,
+      dislikedTags,
+      likedCuisines,
+      dislikedCuisines,
+      likedDiets,
+      dislikedDiets,
+      completedAt: new Date().toISOString()
+    };
+    
+    setTasteProfile(profile);
+    setIsTasteProfileComplete(true);
+    
+    await Promise.all([
+      AsyncStorage.setItem('taste_profile', JSON.stringify(profile)),
+      AsyncStorage.setItem('taste_profile_complete', JSON.stringify(true))
+    ]);
+    
+    console.log('✅ Taste profile saved successfully');
+    console.log('Liked tags:', Object.keys(likedTags).length);
+    console.log('Liked cuisines:', Object.keys(likedCuisines).length);
+  }, []);
+  
+  const resetTasteProfile = useCallback(async () => {
+    setTasteProfile(null);
+    setIsTasteProfileComplete(false);
+    await Promise.all([
+      AsyncStorage.removeItem('taste_profile'),
+      AsyncStorage.removeItem('taste_profile_complete')
+    ]);
+    console.log('🔄 Taste profile reset');
+  }, []);
+
   const resetApp = useCallback(async () => {
     try {
-      // Clear all stored data
       await Promise.all([
         AsyncStorage.removeItem('meal_preferences'),
         AsyncStorage.removeItem('meal_plan'),
         AsyncStorage.removeItem('onboarding_complete'),
-        AsyncStorage.removeItem('removed_recipe_ids')
+        AsyncStorage.removeItem('removed_recipe_ids'),
+        AsyncStorage.removeItem('taste_profile'),
+        AsyncStorage.removeItem('taste_profile_complete')
       ]);
       
-      // Reset state to defaults
       setPreferences(defaultPreferences);
       setMealPlan([]);
       setIsOnboardingComplete(false);
       setRemovedRecipeIds(new Set());
+      setTasteProfile(null);
+      setIsTasteProfileComplete(false);
       
       console.log('App reset completed successfully');
     } catch (error) {
@@ -920,14 +1022,14 @@ export const [MealPlannerProvider, useMealPlanner] = createContextHook(() => {
 
   const getLeftovers = useCallback(() => {
     const groceryList = generateGroceryList();
-    const leftovers: Array<{
+    const leftovers: {
       name: string;
       amount: number;
       unit: string;
       category: string;
       leftoverAmount: number;
       leftoverPercentage: number;
-    }> = [];
+    }[] = [];
 
     groceryList.forEach(item => {
       const usedAmount = item.amount;
@@ -1034,10 +1136,14 @@ export const [MealPlannerProvider, useMealPlanner] = createContextHook(() => {
     preferences,
     mealPlan,
     isOnboardingComplete,
+    tasteProfile,
+    isTasteProfileComplete,
     isLoading,
     isInitialized,
     updatePreferences,
     completeOnboarding,
+    saveTasteProfile,
+    resetTasteProfile,
     generateMealPlan,
     swapMeal,
     generateGroceryList,
@@ -1051,10 +1157,14 @@ export const [MealPlannerProvider, useMealPlanner] = createContextHook(() => {
     preferences,
     mealPlan,
     isOnboardingComplete,
+    tasteProfile,
+    isTasteProfileComplete,
     isLoading,
     isInitialized,
     updatePreferences,
     completeOnboarding,
+    saveTasteProfile,
+    resetTasteProfile,
     generateMealPlan,
     swapMeal,
     generateGroceryList,
