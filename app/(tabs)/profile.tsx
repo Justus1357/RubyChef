@@ -9,7 +9,7 @@ import {
   Modal
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { User, RefreshCw, Trash2, Edit3 } from 'lucide-react-native';
+import { User, RefreshCw, Trash2, Edit3, Heart } from 'lucide-react-native';
 import { useMealPlanner } from '@/hooks/meal-planner-store';
 
 import OnboardingScreen from '@/components/OnboardingScreen';
@@ -18,7 +18,9 @@ export default function ProfileScreen() {
   const { 
     preferences, 
     generateMealPlan, 
-    resetApp
+    resetApp,
+    isTasteProfileComplete,
+    resetTasteProfile
   } = useMealPlanner();
   const [showEditPreferences, setShowEditPreferences] = useState(false);
 
@@ -37,6 +39,27 @@ export default function ProfileScreen() {
               Alert.alert('Reset Complete', 'The app has been reset successfully. You will now see the onboarding screen.');
             } catch (error) {
               Alert.alert('Error', 'Failed to reset the app. Please try again.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleRetakeTasteQuiz = () => {
+    Alert.alert(
+      'Retake Taste Quiz',
+      'This will reset your taste profile and show you the quiz again. Your preferences and meal plans will be kept.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Retake Quiz',
+          onPress: async () => {
+            try {
+              await resetTasteProfile();
+              Alert.alert('Quiz Reset', 'Your taste profile has been reset. You\'ll see the quiz the next time you open the app.');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to reset the taste profile. Please try again.');
             }
           }
         }
@@ -155,6 +178,13 @@ export default function ProfileScreen() {
             <Edit3 size={20} color="#6D1F3C" />
             <Text style={styles.actionButtonText}>Edit Preferences</Text>
           </TouchableOpacity>
+          
+          {isTasteProfileComplete && (
+            <TouchableOpacity style={styles.actionButton} onPress={handleRetakeTasteQuiz}>
+              <Heart size={20} color="#6D1F3C" />
+              <Text style={styles.actionButtonText}>Retake Taste Quiz</Text>
+            </TouchableOpacity>
+          )}
           
           <TouchableOpacity style={styles.actionButton} onPress={generateMealPlan}>
             <RefreshCw size={20} color="#6D1F3C" />

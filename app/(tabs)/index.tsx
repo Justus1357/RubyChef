@@ -14,7 +14,8 @@ import { useMealPlanner } from '@/hooks/meal-planner-store';
 import OnboardingScreen from '@/components/OnboardingScreen';
 import MealCard from '@/components/MealCard';
 import RecipeDetailModal from '@/components/RecipeDetailModal';
-import { Recipe } from '@/types/meal';
+import TasteProfileQuiz from '@/components/TasteProfileQuiz';
+import { Recipe, TasteProfileResponse } from '@/types/meal';
 import { recipes } from '@/data/recipes';
 
 export default function HomeScreen() {
@@ -22,8 +23,12 @@ export default function HomeScreen() {
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [showRecipeModal, setShowRecipeModal] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<'all' | '75' | '50' | 'new' | 'budget'>('all');
+  const [showQuiz, setShowQuiz] = useState(false);
+  const [quizRecipes, setQuizRecipes] = useState<Recipe[]>([]);
   
   const isOnboardingComplete = mealPlannerContext?.isOnboardingComplete ?? false;
+  const isTasteProfileComplete = mealPlannerContext?.isTasteProfileComplete ?? false;
+  const tasteProfile = mealPlannerContext?.tasteProfile ?? null;
   const isLoading = mealPlannerContext?.isLoading ?? false;
   const isInitialized = mealPlannerContext?.isInitialized ?? false;
   const mealPlan = mealPlannerContext?.mealPlan ?? [];
@@ -32,6 +37,44 @@ export default function HomeScreen() {
   const swapMeal = mealPlannerContext?.swapMeal ?? (() => {});
   const getTotalCost = mealPlannerContext?.getTotalCost ?? (() => 0);
   const generateGroceryList = mealPlannerContext?.generateGroceryList ?? (() => []);
+  const saveTasteProfile = mealPlannerContext?.saveTasteProfile ?? (() => {});
+
+  const calculateRecipeScore = useMemo(() => {
+    return (recipe: Recipe): number => {
+      if (!tasteProfile) return 0;
+      
+      let score = 0;
+      
+      if (recipe.tags) {
+        recipe.tags.forEach(tag => {
+          if (tasteProfile.likedTags[tag]) {
+            score += tasteProfile.likedTags[tag] * 10;
+          }
+          if (tasteProfile.dislikedTags[tag]) {
+            score -= tasteProfile.dislikedTags[tag] * 8;
+          }
+        });
+      }
+      
+      if (recipe.cuisine && tasteProfile.likedCuisines[recipe.cuisine]) {
+        score += tasteProfile.likedCuisines[recipe.cuisine] * 15;
+      }
+      if (recipe.cuisine && tasteProfile.dislikedCuisines[recipe.cuisine]) {
+        score -= tasteProfile.dislikedCuisines[recipe.cuisine] * 12;
+      }
+      
+      const recipeDiet = recipe.tags?.includes('vegan') ? 'vegan' : 
+                         recipe.tags?.includes('vegetarian') ? 'vegetarian' : 'any';
+      if (tasteProfile.likedDiets[recipeDiet]) {
+        score += tasteProfile.likedDiets[recipeDiet] * 8;
+      }
+      if (tasteProfile.dislikedDiets[recipeDiet]) {
+        score -= tasteProfile.dislikedDiets[recipeDiet] * 6;
+      }
+      
+      return score;
+    };
+  }, [tasteProfile]);
 
   const cookableRecipes = useMemo(() => {
     const groceryList = generateGroceryList();
@@ -39,9 +82,9 @@ export default function HomeScreen() {
       groceryList.map(item => item.name.toLowerCase())
     );
 
-    return recipes.map(recipe => {
+    const recipesWithScores = recipes.map(recipe => {
       if (!recipe?.ingredients) {
-        return { recipe, available: 0, total: 0, percentage: 0 };
+        return { recipe, available: 0, total: 0, percentage: 0, tasteScore: 0 };
       }
 
       const total = recipe.ingredients.length;
@@ -49,10 +92,25 @@ export default function HomeScreen() {
         ingredientsInPlan.has(ing.name.toLowerCase())
       ).length;
       const percentage = Math.round((available / total) * 100);
+      const tasteScore = calculateRecipeScore(recipe);
 
-      return { recipe, available, total, percentage };
-    }).sort((a, b) => b.percentage - a.percentage);
-  }, [generateGroceryList]);
+      return { recipe, available, total, percentage, tasteScore };
+    });
+    
+    if (isTasteProfileComplete) {
+      recipesWithScores.sort((a, b) => {
+        const scoreDiff = b.tasteScore - a.tasteScore;
+        if (Math.abs(scoreDiff) > 20) {
+          return scoreDiff;
+        }
+        return b.percentage - a.percentage;
+      });
+    } else {
+      recipesWithScores.sort((a, b) => b.percentage - a.percentage);
+    }
+    
+    return recipesWithScores;
+  }, [generateGroceryList, calculateRecipeScore, isTasteProfileComplete]);
 
   const filteredCookableRecipes = useMemo(() => {
     let filtered = cookableRecipes;
@@ -113,10 +171,22 @@ export default function HomeScreen() {
   }, [filteredCookableRecipes, mealPlan]);
 
   useEffect(() => {
-    if (isInitialized && isOnboardingComplete && mealPlan.length === 0) {
+    if (isInitialized && isOnboardingComplete && !isTasteProfileComplete && !showQuiz) {
+      const diverseRecipes = recipes
+        .filter(r => r.image && r.tags && r.tags.length > 0)
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 10);
+      
+      setQuizRecipes(diverseRecipes);
+      setShowQuiz(true);
+    }
+  }, [isInitialized, isOnboardingComplete, isTasteProfileComplete, showQuiz]);
+
+  useEffect(() => {
+    if (isInitialized && isOnboardingComplete && isTasteProfileComplete && mealPlan.length === 0) {
       generateMealPlan();
     }
-  }, [isInitialized, isOnboardingComplete, generateMealPlan, mealPlan.length]);
+  }, [isInitialized, isOnboardingComplete, isTasteProfileComplete, generateMealPlan, mealPlan.length]);
 
   if (!mealPlannerContext) {
     return (
@@ -136,6 +206,23 @@ export default function HomeScreen() {
 
   if (!isOnboardingComplete) {
     return <OnboardingScreen />;
+  }
+
+  if (showQuiz && quizRecipes.length > 0) {
+    return (
+      <TasteProfileQuiz
+        recipes={quizRecipes}
+        onComplete={async (responses: TasteProfileResponse[]) => {
+          console.log('Quiz completed with', responses.length, 'responses');
+          await saveTasteProfile(responses);
+          setShowQuiz(false);
+        }}
+        onSkip={() => {
+          console.log('Quiz skipped');
+          setShowQuiz(false);
+        }}
+      />
+    );
   }
 
   const handleRecipePress = (recipe: Recipe) => {
