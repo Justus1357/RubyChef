@@ -1,2 +1,0 @@
-# RubyChef
-Created by Rork
